@@ -34,6 +34,7 @@ Examples:
 make test-static PROFILE=multipass-1-server-2-agents
 make test-contract PROFILE=aws-single-node-basic INFRA_VERSION=0.9.62-0.9.4
 make test-live PROFILE=on-prem-basic INFRA_VERSION=0.9.62-0.9.4
+PRODUCTIVE_K3S_INFRA_REPO_URL="https://github.com/jemacchi/productive-k3s-infra.git" PRODUCTIVE_K3S_INFRA_REPO_REF="development" make test-matrix
 make test-matrix
 ```
 
@@ -41,7 +42,9 @@ Behavior:
 
 - `test-matrix` runs `static + contract`
 - `test-live` is intended for manual pre-push validation
-- if `INFRA_VERSION` is omitted, the runner resolves the latest released `productive-k3s-infra`
+- if `PRODUCTIVE_K3S_INFRA_REPO_URL` and/or `PRODUCTIVE_K3S_INFRA_REPO_REF` are set, the runner clones that repo/ref
+- otherwise, if `INFRA_VERSION` is set, the runner clones that exact ref
+- otherwise, the runner resolves the latest released `productive-k3s-infra`
 
 ## Relationship with the Infra engine
 
