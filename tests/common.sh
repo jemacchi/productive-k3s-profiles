@@ -29,6 +29,20 @@ need_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }
 
+resolve_default_infra_ref() {
+  local current_branch
+  current_branch="$(git -C "${REPO_DIR}" branch --show-current 2>/dev/null || true)"
+  if [[ -n "${PRODUCTIVE_K3S_INFRA_REPO_REF:-}" ]]; then
+    printf '%s\n' "${PRODUCTIVE_K3S_INFRA_REPO_REF}"
+  elif [[ -n "${INFRA_VERSION:-}" ]]; then
+    printf '%s\n' "${INFRA_VERSION}"
+  elif [[ -n "${current_branch}" ]]; then
+    printf '%s\n' "${current_branch}"
+  else
+    printf 'main\n'
+  fi
+}
+
 resolve_latest_infra_release() {
   need_cmd curl
   need_cmd jq
@@ -44,16 +58,24 @@ prepare_infra_checkout() {
     return 0
   fi
 
-  local ref="${INFRA_VERSION:-}"
-  if [[ -z "${ref}" ]]; then
+  local repo_url="${PRODUCTIVE_K3S_INFRA_REPO_URL:-https://github.com/jemacchi/productive-k3s-infra.git}"
+  local ref=""
+  if [[ -n "${PRODUCTIVE_K3S_INFRA_REPO_URL:-}" || -n "${PRODUCTIVE_K3S_INFRA_REPO_REF:-}" ]]; then
+    ref="$(resolve_default_infra_ref)"
+    log "Cloning productive-k3s-infra from URL override: ${repo_url} (ref: ${ref})"
+  elif [[ -n "${INFRA_VERSION:-}" ]]; then
+    ref="${INFRA_VERSION}"
+    log "Cloning productive-k3s-infra from explicit INFRA_VERSION: ${repo_url} (ref: ${ref})"
+  else
     ref="$(resolve_latest_infra_release)"
     [[ -n "${ref}" ]] || fail "could not resolve latest productive-k3s-infra release"
+    log "Cloning productive-k3s-infra from latest release: ${repo_url} (ref: ${ref})"
   fi
 
   need_cmd git
   TEMP_INFRA_DIR="$(mktemp -d)"
   git clone --depth 1 --branch "${ref}" \
-    "${PRODUCTIVE_K3S_INFRA_REPO_URL:-https://github.com/jemacchi/productive-k3s-infra.git}" \
+    "${repo_url}" \
     "${TEMP_INFRA_DIR}" >/dev/null 2>&1 || fail "could not clone productive-k3s-infra ref ${ref}"
   INFRA_REPO_DIR="${TEMP_INFRA_DIR}"
 }

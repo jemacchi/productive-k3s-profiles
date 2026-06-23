@@ -21,13 +21,22 @@ resolve_default_productive_k3s_repo() {
   fi
 }
 
+resolve_default_productive_k3s_addons_repo() {
+  local candidate="${SCENARIO_DIR}/../../../../productive-k3s-addons"
+  if [[ -d "${candidate}" ]]; then
+    (cd "${candidate}" && pwd)
+  fi
+}
+
 PRODUCTIVE_K3S_REPO="${PRODUCTIVE_K3S_REPO:-$(resolve_default_productive_k3s_repo)}"
+PRODUCTIVE_K3S_ADDONS_REPO_DIR="${PRODUCTIVE_K3S_ADDONS_REPO_DIR:-$(resolve_default_productive_k3s_addons_repo)}"
 PRODUCTIVE_K3S_SOURCE="${PRODUCTIVE_K3S_SOURCE:-${PRODUCTIVE_K3S_SOURCE_DEFAULT}}"
 PRODUCTIVE_K3S_VERSION="${PRODUCTIVE_K3S_VERSION:-}"
 if [[ -z "${PRODUCTIVE_K3S_VERSION}" && "${PRODUCTIVE_K3S_SOURCE}" == "remote" ]]; then
   PRODUCTIVE_K3S_VERSION="${PRODUCTIVE_K3S_CORE_VERSION_DEFAULT}"
 fi
 PRODUCTIVE_K3S_RELEASE_REPO="${PRODUCTIVE_K3S_RELEASE_REPO:-${PRODUCTIVE_K3S_RELEASE_REPO_DEFAULT}}"
+PRODUCTIVE_K3S_DISTRO="${PRODUCTIVE_K3S_DISTRO:-k3s}"
 TELEMETRY_ENABLED="${TELEMETRY_ENABLED:-}"
 TELEMETRY_ENDPOINT="${TELEMETRY_ENDPOINT:-}"
 TELEMETRY_MARKER="${TELEMETRY_MARKER:-pk3s-public-v1}"
@@ -74,6 +83,28 @@ warn() {
 
 err() {
   printf '[ERROR] %s\n' "$*" >&2
+}
+
+productive_k3s_remote_kubectl_cmd() {
+  case "${PRODUCTIVE_K3S_DISTRO}" in
+    k3s) printf '%s' 'sudo k3s kubectl' ;;
+    rke2) printf '%s' 'sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml' ;;
+    *)
+      err "unsupported PRODUCTIVE_K3S_DISTRO: ${PRODUCTIVE_K3S_DISTRO}"
+      exit 1
+      ;;
+  esac
+}
+
+productive_k3s_remote_join_token_cmd() {
+  case "${PRODUCTIVE_K3S_DISTRO}" in
+    k3s) printf '%s' "sudo cat /var/lib/rancher/k3s/server/node-token | tr -d '\\r'" ;;
+    rke2) printf '%s' "sudo cat /var/lib/rancher/rke2/server/node-token | tr -d '\\r'" ;;
+    *)
+      err "unsupported PRODUCTIVE_K3S_DISTRO: ${PRODUCTIVE_K3S_DISTRO}"
+      exit 1
+      ;;
+  esac
 }
 
 need_cmd() {
@@ -161,9 +192,9 @@ validate_productive_k3s_bundle_archive() {
     "productive-k3s-core.sh"
     "scripts/productive-k3s-core.sh"
     "scripts/preflight-host.sh"
-    "scripts/bootstrap-k3s-stack.sh"
-    "scripts/backup-k3s-stack.sh"
-    "scripts/validate-k3s-stack.sh"
+    "scripts/apply.sh"
+    "scripts/backup.sh"
+    "scripts/validate.sh"
     "scripts/send-telemetry.sh"
   )
 
